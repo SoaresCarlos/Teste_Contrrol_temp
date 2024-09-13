@@ -1,0 +1,37 @@
+int transistorPin = 9; // Pino conectado à base do TIP120
+int sensorPin = A0;    // Pino do sensor TMP36GZ
+float temperaturaC;    // Variável para armazenar a temperatura
+float temperaturaAlvo = 0; // Temperatura alvo enviada pelo Python
+int pwmValue = 0; // Valor PWM para controlar o aquecedor
+
+void setup() {
+  pinMode(transistorPin, OUTPUT);
+  Serial.begin(9600); // Inicializa a comunicação serial
+}
+
+void loop() {
+  if (Serial.available() > 0) {
+    // Recebe a temperatura alvo enviada via Serial (em °C)
+    temperaturaAlvo = Serial.parseFloat();
+  }
+
+  // Leitura do TMP36GZ
+  int sensorValue = analogRead(sensorPin); 
+  float voltage = sensorValue * (5.0 / 1023.0);
+  temperaturaC = (voltage - 0.5) * 100.0;
+
+  // Envia a temperatura lida de volta para o Python
+  Serial.println(temperaturaC);
+
+  // Controle simples: ajusta o PWM para aumentar/diminuir a temperatura
+  if (temperaturaC < temperaturaAlvo) {
+    pwmValue = min(pwmValue + 10, 255); // Aumenta o PWM se a temperatura está abaixo
+  } else if (temperaturaC > temperaturaAlvo) {
+    pwmValue = max(pwmValue - 10, 0);   // Diminui o PWM se a temperatura está acima
+  }
+  
+  // Aplica o PWM ao transistor
+  analogWrite(transistorPin, pwmValue);
+
+  delay(1000); // Atraso de 1 segundo entre as leituras
+}
