@@ -1,0 +1,91 @@
+import serial
+import time
+import csv
+import matplotlib.pyplot as plt
+import os
+
+# Configurações da porta serial
+arduino = serial.Serial('COM3', 9600, timeout=1)  # Altere para a sua porta
+time.sleep(2)
+
+# Função para enviar as temperaturas alvo e configuração de amostragem ao Arduino
+def enviar_configuracao(temperatura_alvo1, temperatura_alvo2, duracao_amostragem, numero_amostras):
+    arduino.write(f"{duracao_amostragem},{numero_amostras}\n".encode())  # Envia intervalo e número de amostras
+    arduino.write(f"{temperatura_alvo1},{temperatura_alvo2}\n".encode())  # Envia as temperaturas alvo
+
+# Definir variáveis de configuração
+temperatura_alvo1 = 30.0
+temperatura_alvo2 = 25.0
+duracao_amostragem = 600  # 10 minutos = 600 segundos
+numero_amostras = 600  # Número de amostras
+
+# Envia as configurações ao Arduino
+enviar_configuracao(temperatura_alvo1, temperatura_alvo2, duracao_amostragem, numero_amostras)
+
+# Inicializando variáveis de amostragem
+intervalo_amostras = duracao_amostragem / numero_amostras  # Intervalo entre amostras
+amostras = []  # Lista para armazenar as amostras
+
+# Criando diretório para armazenar os dados
+caminho_diretorio = "C:/pasta1/armazem2/"
+if not os.path.exists(caminho_diretorio):
+    os.makedirs(caminho_diretorio)
+
+# Abrindo arquivo CSV para salvar amostras
+caminho_arquivo = os.path.join(caminho_diretorio, "amostras_temperatura.csv")
+with open(caminho_arquivo, mode='w', newline='') as file:
+    writer = csv.writer(file)
+    writer.writerow(["Tempo (s)", "Potência Aquecedor 1", "Potência Aquecedor 2", "Temperatura 1 (°C)", "Temperatura 2 (°C)"])
+
+    # Inicializa listas para armazenar os dados para o gráfico
+    tempos = []
+    temperaturas1 = []
+    temperaturas2 = []
+
+    plt.ion()  # Modo interativo
+    fig, ax = plt.subplots()
+    ax.set_title("Temperaturas dos Aquecedores vs Tempo")
+    ax.set_xlabel("Tempo (s)")
+    ax.set_ylabel("Temperatura (°C)")
+
+    line1, = ax.plot(tempos, temperaturas1, 'r-', label='Aquecedor 1')
+    line2, = ax.plot(tempos, temperaturas2, 'b-', label='Aquecedor 2')
+
+    plt.legend()
+    start_time = time.time()
+
+    # Loop de amostragem
+    for amostra in range(numero_amostras):
+        current_time = time.time() - start_time
+
+        # Recebe dados do Arduino
+        data = arduino.readline().decode().strip()
+        if data:
+            temperatura1, temperatura2 = map(float, data.split(","))
+            print(f"Tempo: {current_time:.2f} s, Temp 1: {temperatura1} °C, Temp 2: {temperatura2} °C")
+
+            # Atualiza dados para o gráfico
+            tempos.append(current_time)
+            temperaturas1.append(temperatura1)
+            temperaturas2.append(temperatura2)
+
+            line1.set_xdata(tempos)
+            line1.set_ydata(temperaturas1)
+            line2.set_xdata(tempos)
+            line2.set_ydata(temperaturas2)
+            ax.relim()
+            ax.autoscale_view(True, True, True)
+
+            plt.draw()
+            plt.pause(0.1)
+
+            # Salva os dados no CSV
+            writer.writerow([current_time, 255, 127, temperatura1, temperatura2])  # Potências (exemplo: 255 e 127)
+
+        time.sleep(intervalo_amostras)
+
+    plt.ioff()
+    plt.show()
+
+# Fechando conexão serial
+arduino.close()
