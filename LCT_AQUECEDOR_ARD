@@ -5,8 +5,8 @@ void setup() {
 }
 
 void loop() {
-  analogWrite(transistorPin, 128); // Escreve um valor PWM (50% de ciclo de trabalho)
-  delay(10000); // Mantém o aquecimento por 10 segundos
-  analogWrite(transistorPin, 0);  // Desliga o aquecimento
-  delay(10000); // Aguarda 10 segundos
+  analogWrite(transistorPin, 255); // Força o TIP120 a conduzir o máximo de corrente (maior dissipação de calor)
+  delay(10000); // Mantém por 10 segundos
+  analogWrite(transistorPin, 0);  // Desliga
+  delay(10000); // Aguarda 10 segundos antes de repetir o ciclo
 }
