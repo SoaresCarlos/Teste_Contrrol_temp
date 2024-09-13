@@ -1,0 +1,66 @@
+import serial
+import time
+import matplotlib.pyplot as plt
+
+# Configurações da porta serial
+arduino = serial.Serial('COM3', 9600, timeout=1) # Substitua COM3 pela porta correta do seu Arduino
+time.sleep(2)  # Aguarda a inicialização do Arduino
+
+# Função para enviar temperatura alvo ao Arduino
+def enviar_temperatura_alvo(temperatura_alvo):
+    arduino.write(f"{temperatura_alvo}\n".encode())
+
+# Definir a temperatura alvo (exemplo: 20°C)
+temperatura_alvo = 20.0
+enviar_temperatura_alvo(temperatura_alvo)
+
+# Inicializa listas para armazenar os dados de tempo e temperatura
+tempos = []
+temperaturas = []
+
+plt.ion()  # Ativa o modo interativo do Matplotlib
+fig, ax = plt.subplots()
+
+# Configuração inicial do gráfico
+ax.set_title("Temperatura do Aquecedor vs Tempo")
+ax.set_xlabel("Tempo (s)")
+ax.set_ylabel("Temperatura (°C)")
+line, = ax.plot(tempos, temperaturas, 'r-')  # Linha vermelha para a temperatura
+
+# Tempo inicial
+start_time = time.time()
+
+try:
+    while True:
+        # Recebe dados de temperatura do Arduino
+        data = arduino.readline().decode().strip()
+        if data:
+            temperatura_atual = float(data)
+            print(f"Temperatura Atual: {temperatura_atual} °C")
+
+            # Atualiza os dados de tempo e temperatura
+            current_time = time.time() - start_time
+            tempos.append(current_time)
+            temperaturas.append(temperatura_atual)
+
+            # Atualiza o gráfico
+            line.set_xdata(tempos)
+            line.set_ydata(temperaturas)
+            ax.relim()  # Ajusta limites dos eixos
+            ax.autoscale_view(True, True, True)  # Reescala automaticamente
+
+            plt.draw()
+            plt.pause(0.1)  # Pequena pausa para atualização do gráfico
+
+        # Se a temperatura alvo for atingida, finaliza o loop
+        if abs(temperatura_atual - temperatura_alvo) < 0.5:
+            print("Temperatura alvo atingida!")
+            break
+
+except KeyboardInterrupt:
+    print("Programa interrompido.")
+
+finally:
+    arduino.close()
+    plt.ioff()
+    plt.show()  # Mantém o gráfico aberto ao final
