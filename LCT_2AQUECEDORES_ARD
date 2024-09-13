@@ -1,0 +1,79 @@
+int transistor1Pin = 9;
+int transistor2Pin = 10;
+int sensor1Pin = A0;
+int sensor2Pin = A1;
+int ledPin = 11;
+
+float temperatura1, temperatura2;
+float temperaturaAlvo1 = 0, temperaturaAlvo2 = 0;
+int pwmValue1 = 0, pwmValue2 = 0;
+unsigned long startTime;
+unsigned long amostragemIntervalo;
+unsigned int numeroAmostras;
+
+void setup() {
+  pinMode(transistor1Pin, OUTPUT);
+  pinMode(transistor2Pin, OUTPUT);
+  pinMode(ledPin, OUTPUT);
+  Serial.begin(9600);
+
+  // Espera os dados vindos do Python
+  while (Serial.available() == 0) {
+    // Aguarda a chegada dos dados
+  }
+
+  // Recebe as configurações do Python (intervalo de amostragem e número de amostras)
+  amostragemIntervalo = Serial.parseInt() * 1000;  // Intervalo em segundos, convertido para ms
+  numeroAmostras = Serial.parseInt();
+
+  startTime = millis();  // Inicia a contagem de tempo
+}
+
+void loop() {
+  unsigned long currentTime = millis() - startTime;
+  unsigned long remainingTime = amostragemIntervalo - currentTime;
+
+  // Controle do LED proporcional ao tempo restante
+  int ledPower = map(remainingTime, 0, amostragemIntervalo, 0, 255);
+  analogWrite(ledPin, ledPower);
+
+  // Parar após o intervalo de amostragem
+  if (currentTime >= amostragemIntervalo) {
+    analogWrite(transistor1Pin, 0);  // Desliga aquecedores
+    analogWrite(transistor2Pin, 0);
+    analogWrite(ledPin, 0);          // Desliga LED
+    Serial.println("Amostragem finalizada.");
+    while (1);  // Para o loop
+  }
+
+  // A cada segundo, realiza leitura e controle
+  if (currentTime % 1000 == 0) {
+    if (Serial.available() > 0) {
+      temperaturaAlvo1 = Serial.parseFloat();
+      temperaturaAlvo2 = Serial.parseFloat();
+    }
+
+    int sensor1Value = analogRead(sensor1Pin);
+    float voltage1 = sensor1Value * (5.0 / 1023.0);
+    temperatura1 = (voltage1 - 0.5) * 100.0;
+
+    int sensor2Value = analogRead(sensor2Pin);
+    float voltage2 = sensor2Value * (5.0 / 1023.0);
+    temperatura2 = (voltage2 - 0.5) * 100.0;
+
+    Serial.print(temperatura1);
+    Serial.print(",");
+    Serial.println(temperatura2);
+
+    if (temperatura1 < temperaturaAlvo1) {
+      pwmValue1 = min(pwmValue1 + 10, 255);
+    } else {
+      pwmValue1 = max(pwmValue1 - 10, 0);
+    }
+
+    pwmValue2 = pwmValue1 / 2;
+
+    analogWrite(transistor1Pin, pwmValue1);
+    analogWrite(transistor2Pin, pwmValue2);
+  }
+}
